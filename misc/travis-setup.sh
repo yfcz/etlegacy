@@ -20,8 +20,17 @@ elif [[ "$OSTYPE" == "darwin"* ]]; then
 	brew install nasm
 	brew outdated automake || brew upgrade automake
 	brew outdated autoconf || brew upgrade autoconf
+	#brew install cmake
 	#brew install sdl2
 	#brew install jpeg-turbo
+	#brew install curl
+	#brew install lua
+	#brew install libogg
+	#brew install libvorbis
+	#brew install libtheora
+	#brew install freetype
+	#brew install sqlite3
+	brew install lbzip2
 else
 	# unknown system :/
 	echo "Build might fail now"

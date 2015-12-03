@@ -30,7 +30,6 @@ elif [[ "$OSTYPE" == "darwin"* ]]; then
 	#brew install libtheora
 	#brew install freetype
 	#brew install sqlite3
-	brew install lbzip2
 else
 	# unknown system :/
 	echo "Build might fail now"

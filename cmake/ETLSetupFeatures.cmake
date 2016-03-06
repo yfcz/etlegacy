@@ -23,11 +23,18 @@ if(BUILD_CLIENT)
 			find_package(GLEW REQUIRED)
 			list(APPEND RENDERER_LIBRARIES ${GLEW_LIBRARY})
 			include_directories(SYSTEM ${GLEW_INCLUDE_PATH})
-		else()
+		else() # BUNDLED_GLEW
 			list(APPEND RENDERER_LIBRARIES ${BUNDLED_GLEW_LIBRARIES})
 			include_directories(SYSTEM ${BUNDLED_GLEW_INCLUDE_DIR})
 			add_definitions(-DBUNDLED_GLEW)
 			add_definitions(-DGLEW_STATIC)
+		endif()
+
+		if(NOT BUNDLED_WGLEXT)
+			include_directories(SYSTEM ${WGLEXT_INCLUDE_PATH})
+		else() # BUNDLED_WGLEXT
+			include_directories(SYSTEM ${BUNDLED_WGLEXT_INCLUDE_DIR})
+			add_definitions(-DBUNDLED_WGLEXT)
 		endif()
 
 		find_package(OpenGL REQUIRED)

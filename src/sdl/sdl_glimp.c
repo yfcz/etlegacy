@@ -45,6 +45,22 @@
 
 //static qboolean SDL_VIDEODRIVER_externallySet = qfalse;
 
+#if defined _WIN32 && !defined FEATURE_RENDERER_GLES
+#   ifdef BUNDLED_GLEW
+#       include "GL/glew.h"
+#   else
+#       include <GL/glew.h>
+#   endif
+#   ifdef BUNDLED_WGLEXT
+#       include "GL/wglext.h"
+#   else
+#           include <GL/wglext.h>
+#   endif
+#   include "../renderercommon/qgl.h"
+#   pragma comment(lib, "opengl32.lib")
+#   define WGL_PIXEL_FORMAT_FEATURE
+#endif
+
 #ifdef __APPLE__
 #define MACOS_X_GAMMA_RESET_FIX
 #ifdef MACOS_X_GAMMA_RESET_FIX
@@ -128,6 +144,11 @@ vidmode_t glimp_vidModes[] =
 	{ "Mode 20: 3840x2160 (16:9)",  3840, 2160, 1 },
 };
 static int s_numVidModes = ARRAY_LEN(glimp_vidModes);
+
+#ifdef WGL_PIXEL_FORMAT_FEATURE
+PFNWGLCHOOSEPIXELFORMATARBPROC      wglChoosePixelFormatARB;
+PFNWGLGETPIXELFORMATATTRIBIVARBPROC wglGetPixelFormatAttribivARB;
+#endif
 
 void *GLimp_MainWindow(void)
 {
@@ -378,6 +399,73 @@ static void GLimp_DetectAvailableModes(void)
 	}
 }
 
+#ifdef WGL_PIXEL_FORMAT_FEATURE
+static qboolean GLimp_InitWglFunctions(void)
+{
+	wglChoosePixelFormatARB      = (PFNWGLCHOOSEPIXELFORMATARBPROC)wglGetProcAddress("wglChoosePixelFormatARB");
+	wglGetPixelFormatAttribivARB = (PFNWGLGETPIXELFORMATATTRIBIVARBPROC)wglGetProcAddress("wglGetPixelFormatAttribivARB");
+
+	return wglChoosePixelFormatARB && wglGetPixelFormatAttribivARB;
+}
+
+static qboolean GLimp_TestPixelFormatSupport(int colorBits, int depthBits, int stencilBits)
+{
+	HDC hDC = wglGetCurrentDC();
+
+	unsigned int numFormats;
+	const int    piAttribIList[] =
+	{
+		WGL_DRAW_TO_WINDOW_ARB, TRUE,
+		WGL_ACCELERATION_ARB,   WGL_FULL_ACCELERATION_ARB,
+		WGL_SUPPORT_OPENGL_ARB, TRUE,
+		WGL_DOUBLE_BUFFER_ARB,  TRUE,
+		WGL_PIXEL_TYPE_ARB,     WGL_TYPE_RGBA_ARB,
+		WGL_COLOR_BITS_ARB,     colorBits,
+		WGL_DEPTH_BITS_ARB,     depthBits,
+		WGL_STENCIL_BITS_ARB,   stencilBits,
+		0,                      0
+	};
+	int            piFormats = 0;
+	const qboolean valid     = wglChoosePixelFormatARB(hDC, piAttribIList, NULL, 1, &piFormats, &numFormats);
+
+	return valid && (numFormats > 0) ;
+}
+
+static qboolean GLimp_DetectWglExtensionsSupport()
+{
+	SDL_Window      *window = NULL;
+	SDL_GLContext   glContext;
+	static qboolean wglExtensionsFound      = qfalse;
+	static qboolean functionAlreadyExecuted = qfalse;
+
+	if (functionAlreadyExecuted)
+	{
+		return wglExtensionsFound;
+	}
+
+	window = SDL_CreateWindow(CLIENT_WINDOW_TITLE, 0, 0, 640, 480,
+	                          SDL_WINDOW_OPENGL | SDL_WINDOW_HIDDEN);
+	glContext = SDL_GL_CreateContext(window);
+
+	if (GLimp_InitWglFunctions())
+	{
+		wglExtensionsFound = qtrue;
+	}
+
+	if (glContext)
+	{
+		SDL_GL_DeleteContext(glContext);
+	}
+	if (window)
+	{
+		SDL_DestroyWindow(window);
+	}
+
+	functionAlreadyExecuted = qtrue;
+	return wglExtensionsFound;
+}
+#endif
+
 static int GLimp_SetMode(glconfig_t *glConfig, int mode, qboolean fullscreen, qboolean noborder, windowContext_t *context)
 {
 	int             perChannelColorBits;
@@ -388,6 +476,9 @@ static int GLimp_SetMode(glconfig_t *glConfig, int mode, qboolean fullscreen, qb
 	SDL_DisplayMode desktopMode;
 	int             display = 0;
 	int             x       = SDL_WINDOWPOS_UNDEFINED, y = SDL_WINDOWPOS_UNDEFINED;
+#ifdef WGL_PIXEL_FORMAT_FEATURE
+	const int wglSupported = GLimp_DetectWglExtensionsSupport();
+#endif
 
 	Uint32 flags = SDL_WINDOW_OPENGL | SDL_WINDOW_INPUT_GRABBED;
 
@@ -511,6 +602,12 @@ static int GLimp_SetMode(glconfig_t *glConfig, int mode, qboolean fullscreen, qb
 	{
 		depthBits = 24;
 	}
+#ifdef WGL_PIXEL_FORMAT_FEATURE
+	else if (!wglSupported && r_depthbits->value > 24)
+	{
+		depthBits = 24;
+	}
+#endif
 	else
 	{
 		depthBits = r_depthbits->integer;
@@ -532,13 +629,17 @@ static int GLimp_SetMode(glconfig_t *glConfig, int mode, qboolean fullscreen, qb
 			switch (i / 4)
 			{
 			case 2:
-				if (colorBits == 24)
+				if (colorBits >= 24)
 				{
 					colorBits = 16;
 				}
 				break;
 			case 1:
-				if (depthBits == 32)
+				if (depthBits > 32)
+				{
+					depthBits = 32;
+				}
+				else if (depthBits == 32)
 				{
 					depthBits = 24;
 				}
@@ -551,7 +652,7 @@ static int GLimp_SetMode(glconfig_t *glConfig, int mode, qboolean fullscreen, qb
 					depthBits = 8;
 				}
 			case 3: // fall through
-				if (stencilBits == 24)
+				if (stencilBits >= 24)
 				{
 					stencilBits = 16;
 				}
@@ -576,7 +677,15 @@ static int GLimp_SetMode(glconfig_t *glConfig, int mode, qboolean fullscreen, qb
 
 		if ((i % 4) == 2) // reduce depthbits
 		{
-			if (testDepthBits == 24)
+			if (testDepthBits > 32)
+			{
+				testDepthBits = 32;
+			}
+			else if (testDepthBits == 32)
+			{
+				testDepthBits = 24;
+			}
+			else if (testDepthBits == 24)
 			{
 				testDepthBits = 16;
 			}
@@ -713,6 +822,27 @@ static int GLimp_SetMode(glconfig_t *glConfig, int mode, qboolean fullscreen, qb
 			Com_Printf("SDL_GL_CreateContext failed: %s\n", SDL_GetError());
 			continue;
 		}
+
+#ifdef WGL_PIXEL_FORMAT_FEATURE
+		if (wglSupported)
+		{
+			const qboolean wglInialized = GLimp_InitWglFunctions();
+			if (!wglInialized || wglInialized && !GLimp_TestPixelFormatSupport(testColorBits, testDepthBits, testStencilBits))
+			{
+				if (SDL_glContext)
+				{
+					SDL_GL_DeleteContext(SDL_glContext);
+				}
+				if (main_window)
+				{
+					SDL_DestroyWindow(main_window);
+				}
+
+				Com_Printf("Couldn't get a HW accelerated visual\n");
+				continue;
+			}
+		}
+#endif
 
 		SDL_GL_MakeCurrent(main_window, SDL_glContext);
 		SDL_GL_SetSwapInterval(r_swapInterval->integer);

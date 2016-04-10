@@ -5,7 +5,7 @@
 #
 # Please use TABs to indent! (x8)
 #------------------------------------------------------------------------
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 2.8.11)
 
 project(ETLEGACY C CXX)
 

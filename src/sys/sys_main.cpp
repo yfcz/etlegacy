@@ -32,6 +32,9 @@
  * @file sys_main.c
  */
 
+#include <QGuiApplication>
+#include <QQmlApplicationEngine>
+
 #include <signal.h>
 #include <stdlib.h>
 #include <limits.h>

@@ -56,6 +56,8 @@ if(BUNDLED_OPENAL)
 endif(BUNDLED_OPENAL)
 
 target_link_libraries(etl
+    Qt5::Qml
+    Qt5::Gui
 	${CLIENT_LIBRARIES}
 	${SDL_LIBRARIES}
 	${OS_LIBRARIES} # Has to go after cURL and SDL

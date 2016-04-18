@@ -1,5 +1,7 @@
 add_executable(etlded ${COMMON_SRC} ${SERVER_SRC} ${PLATFORM_SRC} ${PLATFORM_SERVER_SRC})
 target_link_libraries(etlded
+    Qt5::Qml
+    Qt5::Gui
 	${SERVER_LIBRARIES}
 	${OS_LIBRARIES}
 )

@@ -5,9 +5,14 @@
 #
 # Please use TABs to indent! (x8)
 #------------------------------------------------------------------------
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 2.8.11)
 
 project(ETLEGACY C CXX)
+
+# Qt stuff
+set(CMAKE_AUTOMOC ON)
+find_package(Qt5Qml REQUIRED)
+find_package(Qt5Gui REQUIRED)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 include(GetGitRevisionDescription)
